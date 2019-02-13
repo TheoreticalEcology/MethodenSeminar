@@ -46,8 +46,8 @@ plot(silhouette(x = cluster$cluster, rf$proximity))
 plot(dune.env$A1~dune.env$Manure, 
      col = cluster$cluster)
 
-
-
+time = system.time({1+2})
+write.csv(as.matrix(time), file = "timeINTER.csv")
 library(NbClust)
 
 cluster = NbClust::NbClust(data = ,diss = as.matrix(dD) , distance = NULL, 
