@@ -7,3 +7,4 @@
 *.svg
 *.txt
 *.csv
+.DS_Store
