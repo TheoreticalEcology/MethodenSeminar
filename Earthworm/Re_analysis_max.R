@@ -2,9 +2,11 @@ library(maptools)
 library(maps)
 library(plyr)
 library(dplyr)
-sapply(list.files("Functions/",full.names = T), source)
+library(mlr)
+library(lme4)
+#sapply(list.files("Functions/",full.names = T), source)
 
-data = read.csv("data/1804_2_sWormModelData.csv")[,-1]
+data = read.csv("Earthworm/1804_2_sWormModelData.csv")[,-1]
 str(data)
 names(data)
 
@@ -62,9 +64,9 @@ richness$scaleAridity <- scale(richness$Aridity)
 richness$ScalePET <- scale(richness$PETyr)
 richness$ScalePETSD <- scale(richness$PET_SD)
 richness$scaleElevation <- scale(richness$elevation)
-ind <- df_variables(richness)
-dat <- richness[,c(ind)]
-cor <- findVariables(dat, VIFThreshold = 3)
+# ind <- df_variables(richness)
+# dat <- richness[,c(ind)]
+# cor <- findVariables(dat, VIFThreshold = 3)
 
 r1 <- glmer(SpeciesRichness ~  ESA + scaleElevation + (scalePH  + 
                                                          scaleCLYPPT + scaleSLTPPT + scaleCECSOL + scaleORCDRC)^2 +
@@ -208,12 +210,12 @@ abundance$ScalePET <- scale(abundance$PETyr)
 abundance$ScalePETSD <- scale(abundance$PET_SD)
 abundance$ScaleElevation  <- scale(abundance$elevation)
 
-ind <- df_variables(abundance)
-dat <- abundance[,c(ind)]
-cor <- findVariables(dat, VIFThreshold = 3)
+# ind <- df_variables(abundance)
+# dat <- abundance[,c(ind)]
+# cor <- findVariables(dat, VIFThreshold = 3)
 
 # bio10_7, bio10_15,CECSOL,elevation,Aridity,PETyr,  phFinal,ClayFinal,SiltFinal, OCFinal   
-
+library(lme4)
 a1 <- lmer(logAbundance ~  ESA + ScaleElevation + (scalePH  + scaleCLYPPT + scaleSLTPPT + scaleCECSOL + scaleORCDRC)^2 +
              (bio10_7_scaled + bio10_15_scaled + SnowMonths_cat + scaleAridity + 
                 ScalePET)^2 +
@@ -223,25 +225,82 @@ a1 <- lmer(logAbundance ~  ESA + ScaleElevation + (scalePH  + scaleCLYPPT + scal
              (1|file/Study_Name), data = abundance,
            control = lmerControl(optCtrl = list(maxfun = 2e5), optimizer ="bobyqa"))
 
-saveRDS(abundance, file = "data/abundance.RDS")
+# saveRDS(abundance, file = "Earthworm/abundance.RDS")
+
+abundance = abundance[complete.cases(abundance$logBiomass) & complete.cases(abundance$SpeciesRichness), ]
+
+nrow(abundance)
+
+tmp = abundance %>% select(logAbundance,logBiomass, SpeciesRichness, ESA, elevation, scalePH, 
+                           CLYPPT, SLTPPT, CECSOL, ORCDRC,bio10_7,SnowMonths_cat,
+                             Aridity, PETyr)
+#tmp$logAbundance = exp(tmp$logAbundance) - 1 
 
 
-library(mlr)
-tmp = abundance %>% select(logAbundance, ESA, elevation, scalePH, 
-                           CLYPPT, SLTPPT, CECSOL, ORCDRC,bio10_7,
-                           bio10_15, SnowMonths_cat, Aridity, PETyr)
-tmp$logAbundance = exp(tmp$logAbundance) -1 
-model = train(learner, task)
+# 1. create task
+task = makeRegrTask(id = "abundance", data = tmp, target = "logAbundance")
 
-task = makeRegrTask(id = "abundance",data = tmp, target = "logAbundance")
+# 2. normalize Features
 task= normalizeFeatures(task)
+
+# 3. ranger -> random forest
 learner = makeLearner("regr.ranger", importance = "impurity")
 getParamSet(learner)
+
+# 4. mit 10-CV fitten:
+result = resample(learner = learner, task = task, resampling = cv10, measures = mlr::mse, models = TRUE)
+
+
+
+
 pars = makeParamSet(makeIntegerParam("mtry", 1, sum(task$task.desc$n.feat)-1L),
                     makeIntegerParam("min.node.size", 5, 200))
-learnerTune = makeTuneWrapper(learner, cv3, measures = mse, par.set = pars, control = makeTuneControlRandom(maxit = 10L))
+learnerTune = makeTuneWrapper(learner, cv3, measures = mse, par.set = pars, 
+                              control = makeTuneControlRandom(maxit = 10L))
 parallelMap::parallelStartSocket(cpus = 5L, level = "mlr.resample")
 result = resample(learnerTune,task, cv3, list(mse, rmse))
 
+library(keras)
+sub = mlr::createDummyFeatures(normalizeFeatures(obj = tmp[,3:ncol(tmp)]))
+X = as.matrix(sub)
+Y = tmp[,1:3]
+
+cvMSE = vector("list", 10)
 
 
+for(i in 1:10){
+  subset = sample.int(nrow(X),size = as.integer(nrow(X)/10))
+  
+  trainX = X[-subset,]
+  trainY = Y[-subset,]
+  
+  testX = X[subset,]
+  testY = Y[subset,]
+  
+  dnn = keras_model_sequential()
+  dnn %>% 
+    layer_dense(input_shape = ncol(X), units = 20L, activation = "relu") %>% 
+    layer_dropout(0.3) %>% 
+    layer_dense(units = 20L, activation = "relu") %>% 
+    layer_dropout(0.3) %>% 
+    layer_dense(units = 20L, activation = "relu") %>% 
+    layer_dropout(0.3) %>% 
+    layer_dense(units = 3L, activation = NULL)
+  
+  dnn %>% 
+    compile(loss = keras::loss_mean_squared_error, optimizer = keras::optimizer_adamax(lr = 0.1))
+  
+  hist = 
+  dnn %>% 
+    fit(x = as.matrix(trainX), y = as.matrix(trainY), validation_split = 0.0, epochs = 70L)
+  preds = 
+    dnn %>% 
+      predict(x = as.matrix(testX))
+  loss =cbind(exp(preds[,1:2]) - 1, preds[,3]) - cbind(exp(testY[,1:2]) - 1, testY[,3])
+  mse = apply(loss, 2, function(l) mean(l^2))
+  cvMSE[[i]] = mse
+  
+}
+
+results = abind::abind(cvMSE, along = 0)
+apply(results, 2, mean)
