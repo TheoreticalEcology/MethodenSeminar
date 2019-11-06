@@ -8,3 +8,8 @@
 *.txt
 *.csv
 .DS_Store
+Earthworm/data/Schema/iDiv-Metadata-Schema.xsd
+Earthworm/data/richness.RDS
+Earthworm/data/abundance.RDS
+Earthworm/data/1804_2594_metadata.html
+Earthworm/data/1804_2594_manifest.xml
