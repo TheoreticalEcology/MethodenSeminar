@@ -32,7 +32,6 @@ sub = mlr::createDummyFeatures(normalizeFeatures(obj = tmp2[,4:ncol(tmp2)]))
 X = as.matrix(sub)
 
 Y = tmp2[,1:3]
-Y[,1:2] = log(Y[,1:2]+1)
 
 
 n = 3L
