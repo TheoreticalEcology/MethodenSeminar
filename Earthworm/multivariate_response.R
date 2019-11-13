@@ -4,7 +4,8 @@ library(plyr)
 library(dplyr)
 library(mlr)
 library(lme4)
-#sapply(list.files("Functions/",full.names = T), source)
+# keras::install_keras()
+# sapply(list.files("Functions/",full.names = T), source)
 
 data = read.csv("Earthworm/1804_2_sWormModelData.csv")[,-1]
 str(data)
@@ -14,13 +15,13 @@ sites =
   data %>% 
   filter(Study_Name!="birkhofer2013")
 
-sites$scalePH <-scale(sites$ph_new)
 
 
-tmp = sites %>% select(logAbundance,logBiomass, SpeciesRichness, ESA, elevation, scalePH, 
+tmp = sites %>% select(logAbundance,logBiomass, SpeciesRichness, ESA, elevation, ph_new, 
                            CLYPPT, SLTPPT, CECSOL, ORCDRC,bio10_7,SnowMonths_cat,
                            Aridity, PETyr)
 
+imputed = missForest::missForest(xmis = tmp[,-c(1:3)])
 
 sub = mlr::createDummyFeatures(normalizeFeatures(obj = tmp[,3:ncol(tmp)]))
 X = as.matrix(sub)
