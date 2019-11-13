@@ -69,3 +69,22 @@ for(i in 1:n){
 
 results = abind::abind(cvMSE, along = 0)
 apply(results, 2, mean)
+
+
+### Calculate importance
+library(DALEX)
+
+dnn = keras_model_sequential()
+dnn %>% 
+  layer_dense(units = 20L, activation = "relu") %>% 
+  layer_dense( input_shape = ncol(trainX), units = 3L, activation = NULL)
+
+dnn %>% 
+  compile(loss = keras::loss_mean_squared_error, optimizer = keras::optimizer_adamax(lr = 0.1))
+
+hist = 
+  dnn %>% 
+  fit(x = as.matrix(X), y = as.matrix(Y), validation_split = 0.2, epochs = 5L)
+explainer = DALEX::explain(dnn, data = X, y = Y[,1], predict_function = function(model, newdata) predict(model, as.matrix(newdata))[,1])
+
+vi = DALEX::variable_importance(explainer)
