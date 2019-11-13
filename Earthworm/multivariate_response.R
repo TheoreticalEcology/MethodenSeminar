@@ -85,6 +85,20 @@ dnn %>%
 hist = 
   dnn %>% 
   fit(x = as.matrix(X), y = as.matrix(Y), validation_split = 0.2, epochs = 5L)
+
+# Abundance
 explainer = DALEX::explain(dnn, data = X, y = Y[,1], predict_function = function(model, newdata) predict(model, as.matrix(newdata))[,1])
+
+vi = DALEX::variable_importance(explainer)
+
+
+# Biomass
+explainer = DALEX::explain(dnn, data = X, y = Y[,2], predict_function = function(model, newdata) predict(model, as.matrix(newdata))[,2])
+
+vi = DALEX::variable_importance(explainer)
+
+
+# Richness
+explainer = DALEX::explain(dnn, data = X, y = Y[,3], predict_function = function(model, newdata) predict(model, as.matrix(newdata))[,3])
 
 vi = DALEX::variable_importance(explainer)
