@@ -21,20 +21,25 @@ tmp = sites %>% select(logAbundance,logBiomass, SpeciesRichness, ESA, elevation,
                            CLYPPT, SLTPPT, CECSOL, ORCDRC,bio10_7,SnowMonths_cat,
                            Aridity, PETyr)
 
-imputed = missForest::missForest(xmis = tmp[,-c(1:3)])
+imputed = missRanger::missRanger(tmp[,-c(1:3)])
+tmp = cbind(tmp[,1:3], imputed)
 
-sub = mlr::createDummyFeatures(normalizeFeatures(obj = tmp[,3:ncol(tmp)]))
+tmp2 = tmp[complete.cases(tmp[,1:3]),]
+
+
+sub = mlr::createDummyFeatures(normalizeFeatures(obj = tmp2[,4:ncol(tmp2)]))
+
 X = as.matrix(sub)
-Y = tmp[,1:3]
+
+Y = tmp2[,1:3]
+Y[,1:2] = log(Y[,1:2]+1)
 
 
-
-
-cvMSE = vector("list", 10)
-
-
-for(i in 1:10){
-  subset = sample.int(nrow(X),size = as.integer(nrow(X)/10))
+n = 3L
+cvMSE = vector("list", n)
+library(keras)
+for(i in 1:n){
+  subset = sample.int(nrow(X),size = as.integer(nrow(X)/n))
   
   trainX = X[-subset,]
   trainY = Y[-subset,]
@@ -44,14 +49,16 @@ for(i in 1:10){
   
   dnn = keras_model_sequential()
   dnn %>% 
-    layer_dense(units = 3L, activation = NULL)
+    layer_dense(units = 20L, activation = "relu") %>% 
+    layer_dense( input_shape = ncol(trainX), units = 3L, activation = NULL)
   
   dnn %>% 
     compile(loss = keras::loss_mean_squared_error, optimizer = keras::optimizer_adamax(lr = 0.1))
   
   hist = 
     dnn %>% 
-    fit(x = as.matrix(trainX), y = as.matrix(trainY), validation_split = 0.0, epochs = 70L)
+      fit(x = as.matrix(trainX), y = as.matrix(trainY), validation_split = 0.0, epochs = 20L)
+  
   preds = 
     dnn %>% 
     predict(x = as.matrix(testX))
@@ -60,3 +67,6 @@ for(i in 1:10){
   cvMSE[[i]] = mse
   
 }
+
+results = abind::abind(cvMSE, along = 0)
+apply(results, 2, mean)
