@@ -13,3 +13,5 @@ Earthworm/data/richness.RDS
 Earthworm/data/abundance.RDS
 Earthworm/data/1804_2594_metadata.html
 Earthworm/data/1804_2594_manifest.xml
+
+Earthworm/rasters/*
