@@ -38,12 +38,10 @@ url <- c(
 
 Rasters <- data.frame(name = predname, url, path = NA, projection = NA, stringsAsFactors = F)
 
-
+download.file(Rasters$url, destfile = Rasters$path)
 Rasters$path[!is.na(url)] <- paste('Earthworm/rasters', paste0(predname, '.tif'), sep = '/')[!is.na(url)]
 Rasters$projection[!is.na(Rasters$path)] <- sapply(Rasters$path[!is.na(Rasters$path)], function(r) projection(raster(r)))
 
-
-download.file(Rasters$url, destfile = Rasters$path)
 
 
 # Stack rasters -----------------------------------------------------------------
@@ -97,6 +95,4 @@ stackRasters <- function(path,
 R <- na.omit(Rasters)
 predstack <- stackRasters(R$path, R$projection, R$name)
 predstack <- raster::scale(predstack, scale = T)
-
-# plot(predstack)
 
