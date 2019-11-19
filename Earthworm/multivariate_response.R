@@ -77,14 +77,14 @@ library(DALEX)
 dnn = keras_model_sequential()
 dnn %>% 
   layer_dense(units = 20L, activation = "relu") %>% 
-  layer_dense( input_shape = ncol(trainX), units = 3L, activation = NULL)
+  layer_dense( input_shape = ncol(trainX), units = 1L, activation = NULL)
 
 dnn %>% 
   compile(loss = keras::loss_mean_squared_error, optimizer = keras::optimizer_adamax(lr = 0.1))
 
 hist = 
   dnn %>% 
-  fit(x = as.matrix(X), y = as.matrix(Y), validation_split = 0.2, epochs = 5L)
+  fit(x = as.matrix(X), y = as.matrix(Y[,1,drop = FALSE]), validation_split = 0.2, epochs = 5L)
 
 # Abundance
 explainer = DALEX::explain(dnn, data = X, y = Y[,1], predict_function = function(model, newdata) predict(model, as.matrix(newdata))[,1])
@@ -102,3 +102,12 @@ vi = DALEX::variable_importance(explainer)
 explainer = DALEX::explain(dnn, data = X, y = Y[,3], predict_function = function(model, newdata) predict(model, as.matrix(newdata))[,3])
 
 vi = DALEX::variable_importance(explainer)
+
+
+t1 = rbinom(10L, 1L, 0.3)
+t2 = rbinom(10L, 1L, 0.5)
+t3 = rbinom(10L, 1L, 0.4)
+t4 = rep(0, 10L)
+
+sum(dbinom(t4,prob = 0.3,size = 1L,log = TRUE))
+sum(dbinom(t4,prob = 0.5,size = 1L,log = TRUE))
