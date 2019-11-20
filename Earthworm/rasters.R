@@ -38,7 +38,7 @@ url <- c(
 
 Rasters <- data.frame(name = predname, url, path = NA, projection = NA, stringsAsFactors = F)
 Rasters$path[!is.na(url)] <- paste('Earthworm/rasters', paste0(predname, '.tif'), sep = '/')[!is.na(url)]
-download.file(Rasters$ursl, destfile = Rasters$path)
+download.file(Rasters$url, destfile = Rasters$path)
 Rasters$projection[!is.na(Rasters$path)] <- sapply(Rasters$path[!is.na(Rasters$path)], function(r) projection(raster(r)))
 
 
