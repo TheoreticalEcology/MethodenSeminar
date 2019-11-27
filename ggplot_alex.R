@@ -1,25 +1,37 @@
 
 #### data
-dat = read.table("../data/SEEDLING.SURVIVAL01.06.min.edge.SWARS.txt", header = T)
-datsp = read.csv("../data/NDD.ABUND.SPPLIST.w.NEIGHBOR.EFFECTS.txt", header = T, sep = "\t")
+txt = dget('../comita/winbugs data.txt')
+# str(txt)
+# str(txt$PREDS)
+# summary(txt$PREDS)
 
 
-# rename data columns to how variables are named in modeling files
-names(dat)[-1] = c("conSeed", "hetSeed", "sp", "surv", "plot", "conAdult", "hetAdult")
+txt$PREDS = matrix(stack(as.data.frame(txt$PREDS))$values, byrow = T, ncol = 5)
+txt$ABUND = matrix(stack(as.data.frame(txt$ABUND))$values, byrow = T, ncol = 3)
+
+Predictors = txt$PREDS
+Abund = txt$ABUND
+
+
+dat = data.frame(Predictors[, c(2, 4, 3, 5)])
+names(dat) = c("conSeed", "hetSeed", "conAdult", "hetAdult")
+dat$surv = txt$SD
+dat$sp = txt$SPP
+dat$plot = txt$PLOT
+
+dat$abund = Abund[dat$sp, 2]
+dat$shade = Abund[dat$sp, 3]
+
+
+# generate pos densities (mimic adding up mean again)
+dat$conSeed_pos = dat$conSeed + abs(min(dat$conSeed))
+dat$hetSeed_pos = dat$hetSeed + abs(min(dat$hetSeed))
+dat$conAdult_pos = dat$conAdult + abs(min(dat$conAdult))
+dat$hetAdult_pos = dat$hetAdult + abs(min(dat$hetAdult))
 
 # generate total densities
-dat$totSeed = dat$conSeed + dat$hetSeed
-dat$totAdult = dat$conAdult + dat$hetAdult
-
-# add abundance and shade tolerance
-dat$abund = log1p(datsp$BA[dat$sp])     # plot(scale(log1p(datsp$BA)) ~ Abund[, 2]) 
-dat$shade = datsp$gm.fit.PCA1[dat$sp]   # plot(datsp$gm.fit.PCA1 ~ Abund[, 3])
-datsp$abund = log1p(datsp$BA)
-datsp$shade = datsp$gm.fit.PCA1
-
-
-# check columns
-!names(dat) %in% names(dat)
+dat$totSeed_pos = dat$conSeed_pos + dat$hetSeed_pos
+dat$totAdult_pos = dat$conAdult_pos + dat$hetAdult_pos
 
 
 #### plots
