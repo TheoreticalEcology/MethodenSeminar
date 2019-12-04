@@ -59,7 +59,7 @@ model %>%
 
 
 #### Transfer learning
-densenet = application_densenet(include_top = FALSE, input_shape  = c(225L, 225L, 3L))
+densenet = application_densenet121(include_top = FALSE, input_shape  = c(225L, 225L, 3L))
 
 
 model = keras::keras_model(inputs = densenet$input, outputs = 
@@ -76,15 +76,20 @@ train_X[1,,,] %>%
 model %>%  predict(train_X[1,,,,drop=FALSE])
 
 model %>% 
-  compile(loss = loss_binary_crossentropy, optimizer = optimizer_adam())
+  compile(loss = loss_binary_crossentropy, optimizer = optimizer_adam(0.001))
 
 model %>% 
   fit(
     x = train_X, 
     y = train_Y,
-    epochs = 1L,
+    epochs = 5L,
     batch_size = 20L,
     shuffle = T,
     validation_data = list(test_X, test_Y),
   )
 
+pred = 
+  model %>% 
+    predict(test_X)
+
+mean(ifelse(pred > 0.5, 1, 0 ) == test_Y[,1])
