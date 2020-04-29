@@ -1,6 +1,6 @@
 
 # Library -----------------------------------------------------------------
-library(BayesianTools)
+# library(BayesianTools)
 library(spatstat)
 
 # Simulation --------------------------------------------------------------
@@ -12,7 +12,7 @@ library(spatstat)
 window <- list(
   type = "rectangle",
   xrange = c(-1, 1),
-  yrange = c(-2, 2),
+  yrange = c(-1, 1),
   units = list(singular = "m", plural = "m")
 )
 attr(window, "class") <- "owin"
@@ -25,16 +25,22 @@ attr(window, "class") <- "owin"
 ## Rationale: lambda = n/Area <=> n = lambda*Area
 ## Thus Poisson process: N(Area) ~ Poisson(lambda*Area)
 
-
 a <- 2
 b_x <- 3
 b_y <- -1.2
 
 # lambda <- function(x, y) exp(a + b_x*x)
-# lambda <- 12
-
+## And here is the point intensity function
 lambda <- function(x, y) exp(a + b_x*x + b_y*y)
 curve(lambda(x, y = 0), -1, 1)
+
+## Here is a weird function to simulate other covariates
+weirdfunction <- function(x,y){ 10 * x^2 + 5 * sin(10 * y) }
+
+## And here is the point intensity function
+lambda2 <- function(x, y) exp(a + b_x*x + b_y*y + weirdfunction(x, y))
+curve(lambda(x, y = 0), -1, 1)
+
 
 ## Make a grid
 # imageres <- 5
@@ -67,7 +73,7 @@ P <- simPoints(lambda)
 plot(P, xlim = window$xrange, ylim = window$yrange)
 
 ## Fake a ppp object.
-pointdata <- list(window = window, n = n, x = P[,"x"], y = P[,"y"])
+pointdata <- list(window = window, n = nrow(P), x = P[,"x"], y = P[,"y"])
 attr(pointdata, "class") <- "ppp"
 plot(pointdata)
 
@@ -78,15 +84,13 @@ plot(pointdata2)
 
 # Fit ---------------------------------------------------------------------
 ?spatstat::ppm()
+str(pointdata)
+
 
 # fit the stationary Poisson process
 # to point pattern 'nztrees'
-
-str(pointdata)
 fit <- ppm(pointdata ~ x + y)
 summary(fit)
 
-
-# How to fit a binomial response and covariates? ----------------------------
-
-
+## Include a third covariate, will also work with an image
+fit2 <- ppm(pointdata ~ x + y + weirdfunction)
