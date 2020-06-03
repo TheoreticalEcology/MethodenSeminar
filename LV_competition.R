@@ -12,11 +12,10 @@ library(deSolve)
 
 
 # One species logistic -------------------------------------------------------------------
-
 calcLogistic <- function(time, state, par)
 {
   with(as.list(par), {
-    dN <- r * state * (1 - state * 1/K)
+    dN <- r * state * (1 - state/K) ## 1/K = a11
     list(dN)
   })
 }
@@ -36,7 +35,7 @@ matplot(Sim_logistic[,-1], type = "l", xlab = "time", ylab = "population")
 ## dn/dt ==  r_n N * (1 - a_nn N - a_nm M)
 ## increment of rate r_n*N is at max for both very small intraspecific and interspecific competition
 ## a12 is the competition of M on N
-## as states N or M grow bigger r_n*N approaches 0
+## as states N or M grow bigger, r_n*N approaches 0
 
 calcComp2 <- function (time, state, par)
 {
@@ -85,7 +84,7 @@ calcCompM <- function(t,
 
 # Multi-species simulation -------------------------------------------------------------------
 n_species <- 9
-time <- 1:2000
+time <- 1:500
 
 ## Generate some random parameters.
 r <- runif(n_species)*2 # Vector of growth rates.
@@ -97,7 +96,7 @@ par <- list(r, A) # Parameters list, including a matrix of alpha values.
 
 m0 <- runif(n_species)/(n_species*alpha) # Initial state matrix.
 
-Sim_m <- ode(m0, t, calcCompM, par)
+Sim_m <- ode(m0, time, calcCompM, par)
 matplot(t, Sim_m[,-1], type="l", ylab="N") # log='y'
 
 
@@ -108,11 +107,10 @@ matplot(t, Sim_m[,-1], type="l", ylab="N") # log='y'
 ## <=>
 ## dm/dt == m * (r - r*(A %*% m))
 
-## ????
 
 ## GLV
 ## dm/dt == m * (r2 + A2 %*% m)
-## dm/dt == m * (r2 + (a11 * m1 +  a12 * m2 etc))
+## dm/dt == m * (r2 + (a11 * m1 +  a12 * m2 ...))
 
 
 
