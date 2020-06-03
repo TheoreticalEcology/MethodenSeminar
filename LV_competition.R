@@ -11,7 +11,33 @@
 library(deSolve)
 
 
+# One species logistic -------------------------------------------------------------------
+
+calcLogistic <- function(time, state, par)
+{
+  with(as.list(par), {
+    dN <- r * state * (1 - state * 1/K)
+    list(dN)
+  })
+}
+
+# Two-species simulation --------------------------------------------------------------
+par <- c(r = 0.1,
+         K = 100)
+state_init <- c(N = 10)
+time = 1:100
+
+Sim_logistic <- ode(y = state_init, times = time, func = calcLogistic, parms = par)
+matplot(Sim_logistic[,-1], type = "l", xlab = "time", ylab = "population")
+
 # Two-species model -------------------------------------------------------------------
+
+## states N, M of two species
+## dn/dt ==  r_n N * (1 - a_nn N - a_nm M)
+## increment of rate r_n*N is at max for both very small intraspecific and interspecific competition
+## a12 is the competition of M on N
+## as states N or M grow bigger r_n*N approaches 0
+
 calcComp2 <- function (time, state, par)
 {
   with(as.list(par), {
@@ -24,8 +50,8 @@ calcComp2 <- function (time, state, par)
 # Two-species simulation --------------------------------------------------------------
 par2 <- c(r_n = 0.05,
          r_m = 0.05,
-         a11 = 0.2,
-         a21 = 0.2,
+         a11 = 0.2, ## interaction coefficients
+         a21 = 0.3,
          a22 = 0.2,
          a12 = 0.1)
 state_init <- c(0.1, 1)
@@ -38,11 +64,21 @@ legend("topright", c("Phragmites australis", "Valeriana dioica"), lty = c(1,2), 
 
 # Multi-species matrix model -------------------------------------------------------------------
 
+## For one species the model equation is:
+## dn/dt ==  r_n N * (1 - (a_nn N + a_nm M))
+
+## Same for multiple species:
+## dm/dt ==  r m * (1 - (A %*% m))
+## first term (r m): here, r, m are just vectorized
+## second term (1 - (A %*% m)): for a two species model equivalent to
+## c(A_11 m1 + A_12 m2, A_21 m1 + A_22 m2)
+
+
 calcCompM <- function(t,
                       m, # A vector of species states.
                       par){
   r <- par[[1]] # Length n vector of growth rates.
-  A <- par[[2]] # Full n x n matrix of competition factors.
+  A <- par[[2]] # Full n x n matrix of interaction coefficients
   dm <- r * m * (1 - (A %*% m)) # This is logistic as well.
   return(list(c(dm)))
 }
@@ -54,7 +90,7 @@ time <- 1:2000
 ## Generate some random parameters.
 r <- runif(n_species)*2 # Vector of growth rates.
 
-alpha <- .01 # The mean competition.
+alpha <- .01 # The mean interaction
 A <- matrix(rnorm(n_species^2, alpha, alpha/10), nrow = n_species) # A full matrix of mutual competition factors.
 
 par <- list(r, A) # Parameters list, including a matrix of alpha values.
@@ -63,6 +99,21 @@ m0 <- runif(n_species)/(n_species*alpha) # Initial state matrix.
 
 Sim_m <- ode(m0, t, calcCompM, par)
 matplot(t, Sim_m[,-1], type="l", ylab="N") # log='y'
+
+
+# GLV ---------------------------------------------------------------------
+
+## instead of
+## dm/dt == r * m * (1 - (A %*% m))
+## <=>
+## dm/dt == m * (r - r*(A %*% m))
+
+## ????
+
+## GLV
+## dm/dt == m * (r2 + A2 %*% m)
+## dm/dt == m * (r2 + (a11 * m1 +  a12 * m2 etc))
+
 
 
 # Data --------------------------------------------------------------------
