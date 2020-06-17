@@ -97,7 +97,7 @@ par <- list(r, A) # Parameters list, including a matrix of alpha values.
 m0 <- runif(n_species)/(n_species*alpha) # Initial state matrix.
 
 Sim_m <- ode(m0, time, calcCompM, par)
-matplot(t, Sim_m[,-1], type="l", ylab="N") # log='y'
+matplot(Sim_m[,-1], type="l", ylab="N") # log='y'
 
 
 # GLV ---------------------------------------------------------------------
@@ -126,4 +126,9 @@ matplot(t, Sim_m[,-1], type="l", ylab="N") # log='y'
 # gauseR --------------------------------------------------------------------
 ## Just as a note that this exists, including data:
 # library(gauseR)
+
+
+
+
+
 
