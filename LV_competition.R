@@ -100,19 +100,6 @@ Sim_m <- ode(m0, time, calcCompM, par)
 matplot(Sim_m[,-1], type="l", ylab="N") # log='y'
 
 
-# GLV ---------------------------------------------------------------------
-
-## instead of
-## dm/dt == r * m * (1 - (A %*% m))
-## <=>
-## dm/dt == m * (r - r*(A %*% m))
-
-
-## GLV
-## dm/dt == m * (r2 + A2 %*% m)
-## dm/dt == m * (r2 + (a11 * m1 +  a12 * m2 ...))
-
-
 
 # Data --------------------------------------------------------------------
 ## Longitudinal community data is available at
