@@ -154,7 +154,7 @@ simulate_game <- function(board, player_w){
     winner <- evaluate_win2(board)
     #print(board)
   }
-  return(winner==player_w)
+  return(winner)
 }
 
 
@@ -198,16 +198,19 @@ game <- function(ai_on = T, ai_mode = "aggressive"){
       # board update
       pm = possible_moves(board)
       
-      simulate_game(board, player)
       
-      results = 
+      
+
+      
+      old = board
+      results =
         sapply(1:100, function(j) {
           sapply(pm, function(i) {
-            board_test<- make_move(board, player, i)
+            board_test<- make_move(old, player, i)
             eval_test = evaluate_win2(board_test)
             if(eval_test > -0.1){
-              if(eval_test == player) return(TRUE)
-              else return(FALSE)
+              if(eval_test == player) return(player)
+              else return(0)
             }
             result_test = simulate_game(board_test, player)
             return(result_test)
@@ -215,7 +218,11 @@ game <- function(ai_on = T, ai_mode = "aggressive"){
         })
       
       best_possible = which.max(apply(t(results), 2, sum))
+      
+      
+      memory[k, 12] = simulate_game(board, 0)
       board<- make_move(board, player, next_move)
+      memory[k, 12] = simulate_game(board, 0)
       memory[k, 12] = best_possible
       winner = evaluate_win2(board)
       
