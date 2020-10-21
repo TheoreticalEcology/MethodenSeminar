@@ -2,7 +2,6 @@ library(tensorflow)
 library(keras)
 library(Rcpp)
 code = "
-
 int evaluate_win_cpp(IntegerVector board){
   int winner = 0;
   int tmp0 = 0; 
@@ -94,10 +93,14 @@ keras = tf$keras
 create_agent = function() {
   m = keras$Sequential(list(
     keras$layers$InputLayer(input_shape = c(10L)),
-    keras$layers$Dense(units = 15L,activation = keras$activations$relu),
-    keras$layers$Dense(units = 15L,activation = keras$activations$relu),
-    keras$layers$Dense(units = 15L,activation = keras$activations$relu),
-    keras$layers$Dense(units = 9L,activation = keras$activations$softmax)
+    keras$layers$Dropout(rate = 0.2), 
+    keras$layers$Dense(units = 35L,activation = keras$activations$relu),
+    keras$layers$Dropout(rate = 0.2), 
+    keras$layers$Dense(units = 35L,activation = keras$activations$relu),
+    keras$layers$Dropout(rate = 0.2), 
+    keras$layers$Dense(units = 35L,activation = keras$activations$relu),
+    keras$layers$Dropout(rate = 0.2), 
+    keras$layers$Dense(units = 12L)
   ))
   return(m)
 }
@@ -105,7 +108,9 @@ create_agent = function() {
 loss_func = function(XTm, YTm, m) {
   with(tf$GradientTape() %as% tape, {
     pred = m(XTm)
-    loss = tf$reduce_mean(keras$losses$categorical_crossentropy(YTm,  pred))
+    loss1 = tf$reduce_mean(keras$losses$categorical_crossentropy(YTm[,1:9,drop=FALSE],  tf$math$softmax(pred[,1:9], axis = 0L)))
+    loss2 = tf$reduce_mean(keras$losses$categorical_crossentropy(YTm[,10:12,drop=FALSE],  tf$math$softmax(pred[,10:12], axis = 0L)))
+    loss = loss1 + loss2
   })
   grads = tape$gradient(loss, m$weights)
   return(grads)
@@ -114,12 +119,14 @@ loss_func = function(XTm, YTm, m) {
 loss_func_tf = tf_function(loss_func)
 
 train_agent = function(m, memory, opt, epoch = 20L) {
-  YT = memory[, 11, drop=FALSE]+0.00001-1
+  YT = memory[, 11:12, drop=FALSE]+0.00001-1
   XT = memory[,1:10, drop=FALSE]
   for(i in 1:epoch) {
     ind = sample.int(nrow(XT), size = ceiling(0.1*nrow(XT)))
     
-    YTm = tf$reshape(tf$squeeze(k_one_hot(YT[ind, ,drop=FALSE]-1, 9)), list(-1L, 9L))
+    YTm1 = tf$reshape(tf$squeeze(k_one_hot(YT[ind, 11,drop=FALSE]-1, 9)), list(-1L, 9L))
+    YTm2 = tf$reshape(tf$squeeze(k_one_hot(YT[ind, 12,drop=FALSE]-1, 3)), list(-1L, 3L))
+    YTm = tf$concat(list(YTm1, YTm2), axis = 1L)
     XTm = XT[ind, ,drop=FALSE]
     # with(tf$GradientTape() %as% tape, {
     #   pred = m(XTm)
@@ -156,7 +163,7 @@ game <- function(ai_on = T, ai_mode = "aggressive"){
   
   # new agent
   
-  memory = matrix(NA, 400, 9+1+1+1)
+  memory = matrix(NA, 400, 9+1+1+1+1)
   counter = 1
   
   for(games in 1:500){
@@ -178,16 +185,20 @@ game <- function(ai_on = T, ai_mode = "aggressive"){
       k = counter
       player = 1
       memory[k, 1:9] = board
-      next_move_p = agent(cbind(matrix(board, 1), player))$numpy()
+      pred = agent(cbind(matrix(board, 1), player))$numpy()
+      next_move_p = tf$math$softmax(pred[1,1:9,drop=FALSE])$numpy()
+      next_win =  tf$math$softmax(pred[1,10:12,drop=FALSE])$numpy()
       while(TRUE) {
         next_move = sample(1:9, 1, prob = scales::rescale(next_move_p)+0.2)
         if(next_move %in% possible_moves(board)) break()
       }
       memory[k, 10] = player
-      memory[k, 11] = next_move
+      memory[k, 11] = which.max(next_move_p)#next_move
       
       # board update
       pm = possible_moves(board)
+      
+      simulate_game(board, player)
       
       results = 
         sapply(1:100, function(j) {
@@ -207,7 +218,8 @@ game <- function(ai_on = T, ai_mode = "aggressive"){
       board<- make_move(board, player, next_move)
       memory[k, 12] = best_possible
       winner = evaluate_win2(board)
-      train_agent(agent, memory[k,,drop=FALSE], opt, epoch = 1L)
+      
+
       
       if(winner>-0.1) break()
       
@@ -216,42 +228,45 @@ game <- function(ai_on = T, ai_mode = "aggressive"){
       k = counter
       
       player = 2
-      memory[k, 1:9] = board
-      next_move_p = agent(cbind(matrix(board, 1), player))$numpy()
+      #memory[k, 1:9] = board
+      #next_move_p = agent(cbind(matrix(board, 1), player))$numpy()
       while(TRUE) {
-        next_move = sample(1:9, 1, prob = scales::rescale(next_move_p)+0.2)
+        next_move  = random_move(board)
+       # next_move = sample(1:9, 1, prob = scales::rescale(next_move_p)+0.2)
         if(next_move %in% possible_moves(board)) break()
       }
-      memory[k, 10] = player
-      memory[k, 11] = next_move
+      #memory[k, 10] = player
+      #memory[k, 11] = which.max(next_move_p)
       
       # board update
-      pm = possible_moves(board)
+      #pm = possible_moves(board)
       
-      results = 
-        sapply(1:100, function(j) {
-          sapply(pm, function(i) {
-            board_test<- make_move(board, player, i)
-            eval_test = evaluate_win2(board_test)
-            if(eval_test > -0.1){
-              if(eval_test == player) return(TRUE)
-              else return(FALSE)
-            }
-            result_test = simulate_game(board_test, player)
-            return(result_test)
-          })
-        })
-      
-      best_possible = which.max(apply(t(results), 2, sum))
+      # results = 
+      #   sapply(1:100, function(j) {
+      #     sapply(pm, function(i) {
+      #       board_test<- make_move(board, player, i)
+      #       eval_test = evaluate_win2(board_test)
+      #       if(eval_test > -0.1){
+      #         if(eval_test == player) return(TRUE)
+      #         else return(FALSE)
+      #       }
+      #       result_test = simulate_game(board_test, player)
+      #       return(result_test)
+      #     })
+      #   })
+      # 
+      #best_possible = which.max(apply(t(results), 2, sum))
       board<- make_move(board, player, next_move)
-      memory[k, 12] = best_possible
-      winner = evaluate_win2(board)
-      train_agent(agent, memory[k,,drop=FALSE], opt, epoch = 1L)
-      counter = counter+1
+      #memory[k, 12] = best_possible
+      #winner = evaluate_win2(board)
+
+      #counter = counter+1
+      
+      if(counter > 10) train_agent(agent, memory[complete.cases(memory), ], opt, epoch = max(counter, 50))
     }
-    cat("Winner: ", winner, "in game: ", games, " Score: ", cor(memory[complete.cases(memory),9], memory[complete.cases(memory),10])," \n")
+    cat("Winner: ", winner, "in game: ", games, " Score: ", mean(memory[complete.cases(memory),9] == memory[complete.cases(memory),10])," \n")
     
-    if(counter > 190) counter = 1
+    if(counter > 100) counter = 1
   }
   
 }
