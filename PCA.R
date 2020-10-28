@@ -12,10 +12,10 @@ M <- sapply(optima, function(x) dnorm(1:n_obs, x, n_obs/n_features))
 matplot(M) # Features along an ordered "gradient" of observations 1:n_obs
 
 optima2 <- runif(n_features, 0, n_obs)
-M2 <- sapply(optima2, function(x) rnorm(n_obs, dnorm(1:n_obs, x, n_obs*10) * 10, 0.001))
+M2 <- sapply(optima2, function(x) rnorm(n_obs, dnorm(1:n_obs, x, n_obs*10) * 10, 0.0001))
 matplot(M2) # Features along an ordered "gradient" of observations 1:n_obs
 
-# M <- M2
+M <- M2
 
 getPCA <- function(M){
   ## 0. scale data, actually only centering is necessary (by subtracting the mean from data)
@@ -34,11 +34,11 @@ getPCA <- function(M){
 
   ## Eigenvectors of the covariance matrix characterize the axes of variation between the data
   ## and the corresponding eigenvalues are equivalent to the sd!
-  # plot(M[,1], M[,2], col = 1:n_obs)
-  # lines(c(0, Evector[1,1]), c(0, Evector[2,1])) # 1st eigenvector
-  # lines(c(0, Evector[1,2]), c(0, Evector[2,2])) # 2nd eigenvector
+  plot(M[,1], M[,2], col = 1:n_obs)
+  lines(c(0, Evector[1,1]), c(0, Evector[2,1])) # 1st eigenvector
+  lines(c(0, Evector[1,2]), c(0, Evector[2,2])) # 2nd eigenvector
 
-  ## For some reason princomp() sometimes reverts the direction of the second Principal component:
+  ## For some reason princomp() sometimes reverts the direction of some Principal component:
   # Evector[,2] <- -Evector[,2] # ???
 
   ## 3. New data, transformed ("rotated") along the axes of Eigenvectors
@@ -46,7 +46,7 @@ getPCA <- function(M){
   Scores <- t( t(Evector) %*% t(M) )
   # plot(Scores[,1], Scores[,2],  col = 1:n_obs)
 
-  fakeprincomp <- list(sdev = evalue,
+  fakeprincomp <- list(sdev = evalue, # evalue/sum(evalue) #?
                        loadings = Evector,
                        center = attr(M, "scaled:center"),
                        scale = attr(M, "scaled:scale"),
@@ -62,9 +62,23 @@ biplot(princomp(M))
 biplot(getPCA(M))
 
 
-# Compare the resulting eigenvectors.
+## Compare the resulting eigenvectors.
 # princomp(M)$loadings
 # getPCA(M)$loadings
 
+
+# Other methods --------------------------------------------------------------------
+library(vegan)
+nmds <- vegan::metaMDS(M)
+
+## We know the more or less true "distance" of features, because we have ordered them along 1:n_obs
+gradient <- scale(1:n_obs)
+gradient_error <- rnorm(gradient, gradient, 5)
+
+ordiplot(getPCA(M), type = "text")
+
+# M <- M2
+ordisurf(getPCA(M), gradient)
+ordisurf(metaMDS(M), gradient)
 
 
