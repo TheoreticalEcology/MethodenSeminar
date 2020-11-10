@@ -35,11 +35,10 @@ transformed parameters {
 
   // integrate ode returns an array of column vectors, 'columns' accessed vie State[i]
   for(z in 1:N_series) {
-      State[z,] = ode_rk45_tol(ds_dt,
-                               state_init[z], time_init[z], times[z,],
-                               1e-5, 1e-3, 10000, // old integrator tolerances settings: real rel_tol, real abs_tol, int max_num_steps
-                               r, A, // model parameters
-                               N_species);
+      State[z,] = ode_rk45(ds_dt,
+                           state_init[z], time_init[z], times[z,],
+                           r, A, // model parameters
+                           N_species);
   }
 
 }
@@ -49,7 +48,7 @@ model {
   // Priors
 
   // for (s in 1:N_species) nA[, s] ~ cauchy(0, 1);
-  r ~ normal(2, 0.01);
+  r ~ lognormal(log(2), 0.1);
 
   // Regularizing prior for sigma
   // Already small over-estimation of sigma will lead to severely small parameter estimates.

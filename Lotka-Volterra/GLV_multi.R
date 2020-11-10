@@ -73,16 +73,10 @@ par <- list(r, A) # Parameters list, including a matrix of alpha values.
 #### Integrate model for one sim
 simulateSeries <- function(times = seq(4, 40, by = 2), sigma = 0) {
   m0 <- runif(n_species, 0.5, 4) # Initial state matrix.
-  sim0 <- c(time = 0, species = m0)
   Sim <- ode(m0, times, calcGLV, par, method = 'ode45')
-
-  sim0[2:(n_species+1)] <- rlnorm(sim0, log(sim0), sigma)[2:(n_species+1)]
   Sim[,2:(n_species+1)] <- matrix(rlnorm(Sim, log(Sim), sigma), nrow = nrow(Sim))[, 2:(n_species+1)]
 
-  ## only necessary for rnorm
-  # Sim[, 2:(n_species+1)][Sim[, 2:(n_species+1)] < 0] <- 0
-
-  return(rbind(sim0, Sim))
+  return(Sim)
 }
 
 Sim <- simulateSeries(sigma = 0.05)
@@ -95,14 +89,14 @@ simulateMultipleSeries <- function(n_series = 15, n_times = 20, sigma = 0.05, fo
   Sims <- replicate(n_series,
                     simulateSeries(1:(n_times), sigma = sigma),
                     simplify = F)
-
+  
   if (match.arg(format) %in% c("wide", "long")) {
-    Sims <- cbind(do.call(rbind, Sims), series = rep(1:n_series, each = n_times+1))
+    Sims <- cbind(do.call(rbind, Sims), series = rep(1:n_series, each = n_times))
   }
-
+  
   if (match.arg(format) == "long") {
     Sims <- tidyr::pivot_longer(as.data.frame(Sims),
-                                cols = all_of(paste0("species", 1:n_species)),
+                                cols = all_of(paste(1:n_species)),
                                 names_to = "pop",
                                 values_to = "abundance") %>%
       mutate(species = rep(1:n_species, length.out = nrow(.)))
