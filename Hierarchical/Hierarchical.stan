@@ -12,7 +12,7 @@ data {
   int<lower=1> lookup2in3[N];
 
   vector[N_groups1] x1;
-  vector[N] x3;
+  vector[N_groups2] x2;
   vector[N] y;
   
   real hypersigma;
@@ -20,7 +20,7 @@ data {
 
 parameters {
   real b1;
-  real b3;
+  real b2;
   
   real<lower=0> sigma1;
   real<lower=0> sigma2;
@@ -33,21 +33,21 @@ parameters {
 
 transformed parameters {
   vector[N_groups1] m2_hat;
-  vector[N] y_hat;
+  vector[N_groups2] m3_hat;
   
-  m2_hat = m1[lookup1in2] + b1*x1[lookup1in2];
-  y_hat = m2[lookup2in3] + b3*x3[lookup2in3];
+  m2_hat = m1 + b1*x1;
+  m3_hat = m2 + b2*x2;
 }
 
 model {
   // Priors
-  sigma3 ~ cauchy(0, hypersigma);
+  sigma3 ~ cauchy(0, hypersigma); // cauchy(0, 1)
   
   // 'Random effects'
   m1 ~ normal(m0, sigma1);
-  m2 ~ normal(m2_hat, sigma2);
+  m2 ~ normal(m2_hat[lookup1in2], sigma2);
   
   // Likelihood
-  y ~ normal(y_hat, sigma3);
+  y ~ normal(m3_hat[lookup2in3], sigma3);
 }
 

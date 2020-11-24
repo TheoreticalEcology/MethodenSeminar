@@ -7,6 +7,8 @@ library(cmdstanr)
 
 # Simulate data from three-level hierarchical process ---------------------------------
 ## model structure with two nested groups: groups1/groups2/observations
+set.seed(100)
+
 n_groups1 <- 15
 n_groupswithin1 <- 10 # groups2
 n_groups2 <- n_groups1 * n_groupswithin1
@@ -20,33 +22,32 @@ id <- 1:n
 G <- cbind(groups1, groups2, id)
   
 x1 <- runif(n_groups1, -1, 1)
-x3 <- runif(n, -1, 1)
+x2 <- runif(n_groups2, -1, 1)
 
 ## level 0
-m0 <- 3.3 # overall mean
+m0 <- 3 # overall mean
 
 ## level 1, dependent on x1
-m1 <- rnorm(n_groups1, mean = m0, sd = 7.7)
-b1 <- 2
+m1 <- rnorm(n_groups1, mean = m0, sd = 8)
+b1 <- 0.5
 m1 <- m1 + b1*x1
 m1 <- rep(m1, each = n_groupswithin1) # length == n_groups2
 
-## level 2, independent of a predictor, independent across group
-m2 <- rnorm(n_groups2, mean = m1, sd = 8.8)
-m2 <- rep(m2, each = n_obswithin2) # length == n_groups2
+## level 2, independent across groups1
+m2 <- rnorm(n_groups2, mean = m1, sd = 4)
+b2 <- -0.5
+m2 <- m2 + b2 * x2
+m2 <- rep(m2, each = n_obswithin2) # length == n
 
-## level 3, dependent on x3
-b3 <- -2
-y_hat <- m2 + b3 * x3
-## observation error
-y <- rnorm(n, mean = y_hat, sd = 4)
+## level 3
+y <- rnorm(n, mean = m2, sd = 2) ## within group2 error
 
-D <- data.frame(G, y, x1 = x1[groups1], x3)
+D <- data.frame(G, y, x1 = x1[groups1], x2 = x2[groups2])
 boxplot(y ~ groups1:groups2, data = D[1:175,], col = groups1)
 
 # Stan fit ----------------------------------------------------------------
 standata <- list(y = D$y,
-                 x3 = x3,
+                 x2 = x2,
                  x1 = x1,
                  
                  N_groups1 = length(unique(D$groups1)),
@@ -56,28 +57,45 @@ standata <- list(y = D$y,
                  lookup2in3 = D$groups2,
                  lookup1in2 = unique(D[c('groups2', 'groups1')])$groups1,
                  
-                 hypersigma = 0.5
+                 hypersigma = 1
                  )
 
 ## Compilation
 stanmodel <- cmdstan_model('Hierarchical/Hierarchical.stan')
 
-## Optimization
-stanoptim <- stanmodel$optimize(data = standata)
-stanoptim$summary() %>% View()
+#### Sampling/Optimization
+## 0. Optimization
+stanfit_optim <- stanmodel$optimize(data = standata)
+stanfit_optim$summary() # %>% View()
 
-## NUTS sampling
-standraw <- stanmodel$sample(data = standata,
+## 1. NUTS sampling
+stanfit_nuts <- stanmodel$sample(data = standata,
                              chains = 3,
                              parallel_chains = getOption("mc.cores", 3))
-standraw$summary()
-## TMB with Laplace sampling
+stanfit_nuts$summary(variables = c("m0", "b1", "b2", "sigma1", "sigma2", "sigma3"))
+draw <- stanfit_nuts$draws()
+bayesplot::mcmc_trace(draw, pars = c("m0", "b1", "b2", "sigma1", "sigma2", "sigma3"))
+bayesplot::mcmc_areas(draw, pars = c("m0", "b1", "b2", "sigma1", "sigma2", "sigma3"))
+bayesplot::ppc_dens_overlay(y = y,
+                 yrep = posterior::as_draws_matrix(stanfit_nuts$draws(variables = "m3_hat"))[1:500,],
+                 alpha = 0.2)
+
+## 2. Variational Bayes
+stanfit_variational <- stanmodel$variational(data = standata)
+bayesplot::mcmc_areas(stanfit_variational$draws(), pars = c("m0", "b1", "b2", "sigma1", "sigma2", "sigma3"))
+
+
+## 3. TMB with Laplace sampling
+
+
+# stanfit <- rstan::read_stan_csv(stanfit_nuts$output_files())
+# shinystan::launch_shinystan(stanfit)
 
 
 # mle fit -------------------------------------------------------------
-fit <- lm(y ~ x3, data = D)
+fit <- lm(y ~ x1 + x2, data = D)
 summary(fit)
-fit <- lme4::lmer(y ~ x3 + (1 | groups1/groups2), data = D)
+fit <- lme4::lmer(y ~ x2 + x1 + (1 | groups1/groups2), data = D)
 summary(fit)
 
 
