@@ -27,15 +27,23 @@ x2 <- runif(n_groups2, -1, 1)
 ## level 0
 m0 <- 3 # overall mean
 
+#                      m0
+# (sd = 8)
+# m1                              m1              
+# (sd = 4)
+# m2               m2             m2             m2
+# (sd = 2)
+# obs obs obs     obs obs obs     obs obs obs    obs obs obs
+
 ## level 1, dependent on x1
 m1 <- rnorm(n_groups1, mean = m0, sd = 8)
-b1 <- 0.5
+b1 <- 1
 m1 <- m1 + b1*x1
 m1 <- rep(m1, each = n_groupswithin1) # length == n_groups2
 
 ## level 2, independent across groups1
 m2 <- rnorm(n_groups2, mean = m1, sd = 4)
-b2 <- -0.5
+b2 <- -1
 m2 <- m2 + b2 * x2
 m2 <- rep(m2, each = n_obswithin2) # length == n
 
@@ -70,13 +78,16 @@ stanfit_optim$summary() # %>% View()
 
 ## 1. NUTS sampling
 stanfit_nuts <- stanmodel$sample(data = standata,
-                             chains = 3,
-                             parallel_chains = getOption("mc.cores", 3))
+                                chains = 3,
+                                parallel_chains = getOption("mc.cores", 3))
+
+
+
 stanfit_nuts$summary(variables = c("m0", "b1", "b2", "sigma1", "sigma2", "sigma3"))
 draw <- stanfit_nuts$draws()
 bayesplot::mcmc_trace(draw, pars = c("m0", "b1", "b2", "sigma1", "sigma2", "sigma3"))
 bayesplot::mcmc_areas(draw, pars = c("m0", "b1", "b2", "sigma1", "sigma2", "sigma3"))
-bayesplot::ppc_dens_overlay(y = y,
+bayesplot::ppc_dens_overlay(y = unique(m2),
                  yrep = posterior::as_draws_matrix(stanfit_nuts$draws(variables = "m3_hat"))[1:500,],
                  alpha = 0.2)
 
@@ -86,6 +97,7 @@ bayesplot::mcmc_areas(stanfit_variational$draws(), pars = c("m0", "b1", "b2", "s
 
 
 ## 3. TMB with Laplace sampling
+# library(tmbstan)
 
 
 # stanfit <- rstan::read_stan_csv(stanfit_nuts$output_files())
@@ -93,9 +105,8 @@ bayesplot::mcmc_areas(stanfit_variational$draws(), pars = c("m0", "b1", "b2", "s
 
 
 # mle fit -------------------------------------------------------------
-fit <- lm(y ~ x1 + x2, data = D)
-summary(fit)
 fit <- lme4::lmer(y ~ x2 + x1 + (1 | groups1/groups2), data = D)
 summary(fit)
 
+# brms
 
