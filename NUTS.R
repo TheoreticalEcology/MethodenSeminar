@@ -1,14 +1,4 @@
 
-n <-  100
-b <- 5
-y <- rnorm(n, b)
-
-theta <- 3
-
-f <- function(x, b) {
-  dnorm(x, b, log = T)
-}
-
 
 #' No-U-Turn sampler
 #'
@@ -36,11 +26,11 @@ NUTS <- function(theta, f, grad_f, n_iter, M_diag = NULL, M_adapt = 50, delta = 
 }
 
 
-NUTS_one_step <- function(theta, iter, f, grad_f, par_list, delta = 0.5, max_treedepth = 10, eps = 1, verbose = TRUE){
-  kappa <- 0.75
-  t0 <- 10
+NUTS_one_step <- function(theta, iter, f, grad_f, par_list, delta = 0.8, max_treedepth = 10, eps = 1, verbose = TRUE){
+  kappa <- 0.75 # adaption
+  t0 <- 10 # adaption iteration offset
   gamma <- 0.05
-  M_adapt <- par_list$M_adapt
+  M_adapt <- par_list$M_adapt 
   if(is.null(par_list$M_diag)){
     M_diag <- rep(1, length(theta))
   } else{
@@ -50,7 +40,7 @@ NUTS_one_step <- function(theta, iter, f, grad_f, par_list, delta = 0.5, max_tre
   if(iter == 1){
     eps <- find_reasonable_epsilon(theta, f, grad_f, M_diag, eps = eps, verbose = verbose)
     mu <- log(10*eps)
-    H <- 0
+    H <- 0 # energy
     eps_bar <- 1
   } else{
     eps <- par_list$eps
@@ -59,7 +49,7 @@ NUTS_one_step <- function(theta, iter, f, grad_f, par_list, delta = 0.5, max_tre
     mu <- par_list$mu
   }
   
-  r0 <- rnorm(length(theta), 0, sqrt(M_diag))
+  r0 <- rnorm(length(theta), 0, sqrt(M_diag)) # Drawing the momentum from a normal, less mass less widespread energies 
   u <- runif(1, 0, exp(f(theta) - 0.5 * sum(r0**2 / M_diag)))
   if(is.nan(u)){
     warning("NUTS: sampled slice u is NaN")
@@ -222,4 +212,34 @@ build_tree = function(theta, r, u, v, j, eps, theta0, r0, f, grad_f, M_diag, Del
 }
 
 
+
+# Generate data from model ---------------------------------------------------------------------
+
+
+n <-  1000
+b <- 5
+y <- rnorm(n, b)
+
+
+## Likelihood ---------------------------------------------------------------------
+
+f <- function(b) {
+  sum(dnorm(y, b, log = T))
+}
+
+grad_f <- function(b) {
+  sum(y - b)
+}
+
+
+
+# Fit -----------------------------------------------------------------
+
+theta <- -1 ## start value
+n_iter <-  800
+
+results <- NUTS(theta, f, grad_f, n_iter)
+
+plot(density(results[(n_iter*0.5):n_iter]))
+plot(60:n_iter, results[60:n_iter], type = "l")
 
